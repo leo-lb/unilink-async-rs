@@ -111,9 +111,11 @@ async fn handle_conn(stream: &mut TcpStream, shared: Arc<Mutex<Shared>>) -> io::
                     await!(stream.write_all_async(&be_len))?;
                     await!(stream.write_all_async(&raw))?;
                 } else if let Some(sender) = shared.lock().unwrap().pending_requests.remove(&(stream.peer_addr().unwrap(), kind)) {
-                    let sender = sender.clone();
-                    
-                    await!(sender.send_async(body)).map_err(|_| io::Error::from(io::ErrorKind::Other))?;
+
+                    let mut sender = sender.clone();
+                    tokio::spawn_async(async move {
+                        await!(sender.send_async(body)).is_err();
+                    });
                 }
             }
             1 /* ANNOUNCE */ => {
